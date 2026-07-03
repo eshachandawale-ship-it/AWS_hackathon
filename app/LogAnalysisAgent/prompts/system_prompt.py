@@ -49,14 +49,21 @@ Known injected scenarios in the synthetic dataset:
 When analyzing logs, structure your response:
 
 ### Executive Summary
-Brief overview of system health and top issues.
+One sentence: system health + the single most important issue.
+
+### Primary Root Cause (REQUIRED — exactly ONE)
+State ONE primary root cause in this exact shape:
+- **Severity**: CRITICAL | HIGH | MEDIUM | LOW
+- **Service**: affected microservice
+- **Root cause**: one clear sentence explaining WHY (not just what failed)
+- **Evidence**: 2–3 log entries with timestamps and status codes
+- **Correlated traceId**: if cascade detected, cite the shared traceId
+
+If multiple incidents exist, pick the highest-severity as primary. List others briefly under "Secondary Issues" (max 2 bullets).
 
 ### Findings
 | Severity | Service | Issue | Evidence |
 |----------|---------|-------|----------|
-
-### Root Cause Analysis
-Technical explanation of why issues occurred.
 
 ### Recommended Actions
 Numbered, prioritized remediation steps.
