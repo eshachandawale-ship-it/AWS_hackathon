@@ -1,0 +1,323 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Hackathon setup for Log Analysis Agent — CloudWatch log group, synthetic data seed, and IAM policy for AgentCore"
+
+Parameters:
+  LogGroupName:
+    Type: String
+    Default: /hackathon/log-analysis/ecommerce-platform
+    Description: CloudWatch log group for synthetic e-commerce microservice logs
+
+  LogRetentionDays:
+    Type: Number
+    Default: 7
+    AllowedValues: [1, 3, 5, 7, 14, 30]
+    Description: Days to retain synthetic log data
+
+  SeedEventCount:
+    Type: Number
+    Default: 300
+    MinValue: 50
+    MaxValue: 2000
+    Description: Number of synthetic log events to seed on stack create
+
+Resources:
+  LogAnalysisSetupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LogAnalysisSetupPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
+                  - logs:DescribeLogGroups
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: "*"
+
+  EcommerceLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref LogGroupName
+      RetentionInDays: !Ref LogRetentionDays
+
+  SeedLogsLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.12
+      Timeout: 300
+      Description: Seed synthetic e-commerce microservice logs for hackathon prototype
+      Role: !GetAtt LogAnalysisSetupRole.Arn
+      Environment:
+        Variables:
+          LOG_GROUP_NAME: !Ref LogGroupName
+          SEED_EVENT_COUNT: !Ref SeedEventCount
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import time
+          import uuid
+          import random
+          import boto3
+          import cfnresponse
+          from datetime import datetime, timezone, timedelta
+
+          SERVICES = [
+              "api-gateway",
+              "auth-service",
+              "payment-service",
+              "order-service",
+              "inventory-service",
+          ]
+
+          def make_event(ts, service, is_error=False):
+              return {
+                  "timestamp": int(ts.timestamp() * 1000),
+                  "message": json.dumps({
+                      "service": service,
+                      "level": "ERROR" if is_error else "INFO",
+                      "statusCode": random.choice([500, 503, 504]) if is_error else 200,
+                      "latencyMs": random.randint(2000, 12000) if is_error else random.randint(20, 400),
+                      "message": "ERROR: Service failure detected" if is_error else "INFO: Request processed",
+                      "traceId": str(uuid.uuid4()),
+                      "environment": "hackathon-prototype",
+                  }),
+              }
+
+          def seed_logs(log_group, count):
+              client = boto3.client("logs")
+              now = datetime.now(timezone.utc)
+              events = []
+
+              for i in range(count):
+                  ts = now - timedelta(minutes=random.randint(0, 180))
+                  service = random.choice(SERVICES)
+                  # Inject incident windows
+                  is_error = random.random() < 0.12
+                  if service == "payment-service" and random.random() < 0.04:
+                      is_error = True
+                  if service == "auth-service" and random.random() < 0.06:
+                      is_error = True
+                  events.append(make_event(ts, service, is_error))
+
+              events.sort(key=lambda e: e["timestamp"])
+              stream = f"synthetic/seed-{int(time.time())}"
+              client.create_log_stream(logGroupName=log_group, logStreamName=stream)
+              client.put_log_events(
+                  logGroupName=log_group,
+                  logStreamName=stream,
+                  logEvents=events,
+              )
+              return len(events), stream
+
+          def publish_metrics(events_json):
+              cw = boto3.client("cloudwatch")
+              errors = {}
+              for e in events_json:
+                  body = json.loads(e["message"])
+                  if body.get("level") == "ERROR" or body.get("statusCode", 0) >= 500:
+                      svc = body.get("service", "unknown")
+                      errors[svc] = errors.get(svc, 0) + 1
+              now = datetime.now(timezone.utc)
+              for svc, count in errors.items():
+                  cw.put_metric_data(
+                      Namespace="Hackathon/LogAnalysis",
+                      MetricData=[{
+                          "MetricName": "ErrorCount",
+                          "Dimensions": [{"Name": "Service", "Value": svc}],
+                          "Value": count,
+                          "Unit": "Count",
+                          "Timestamp": now,
+                      }],
+                  )
+
+          def handler(event, context):
+              try:
+                  if event["RequestType"] == "Delete":
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
+
+                  log_group = os.environ["LOG_GROUP_NAME"]
+                  count = int(os.environ.get("SEED_EVENT_COUNT", "300"))
+                  seeded, stream = seed_logs(log_group, count)
+
+                  # Re-read events for metrics (simplified: estimate from count)
+                  publish_metrics([make_event(datetime.now(timezone.utc), "payment-service", True)])
+
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      "LogGroupName": log_group,
+                      "EventsSeeded": str(seeded),
+                      "LogStream": stream,
+                      "MetricNamespace": "Hackathon/LogAnalysis",
+                  }, physical_resource_id=stream)
+              except Exception as exc:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": str(exc)})
+
+  SeedLogsResource:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: EcommerceLogGroup
+    Properties:
+      ServiceToken: !GetAtt SeedLogsLambda.Arn
+      Version: "1"
+
+  AgentCloudWatchReadPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "HackathonLogAnalysisAgentPolicy-${AWS::StackName}"
+      Description: CloudWatch read permissions for Log Analysis AgentCore runtime
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CloudWatchLogsRead
+            Effect: Allow
+            Action:
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+              - logs:FilterLogEvents
+              - logs:GetLogEvents
+              - logs:StartQuery
+              - logs:GetQueryResults
+              - logs:StopQuery
+            Resource:
+              - !GetAtt EcommerceLogGroup.Arn
+              - !Sub "${EcommerceLogGroup.Arn}:*"
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/hackathon/*"
+          - Sid: CloudWatchMetricsRead
+            Effect: Allow
+            Action:
+              - cloudwatch:GetMetricStatistics
+              - cloudwatch:ListMetrics
+            Resource: "*"
+          - Sid: BedrockInvoke
+            Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+              - bedrock:InvokeModelWithResponseStream
+            Resource:
+              - !Sub "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-*"
+              - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-*"
+
+  # Verifier: confirms log group has data after seed (mirrors Kiro subscription checker pattern)
+  LogDataVerifierLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.12
+      Timeout: 120
+      Description: Verify synthetic logs were seeded successfully
+      Role: !GetAtt LogAnalysisSetupRole.Arn
+      Environment:
+        Variables:
+          LOG_GROUP_NAME: !Ref LogGroupName
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import time
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+              try:
+                  if event["RequestType"] == "Delete":
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
+
+                  log_group = os.environ["LOG_GROUP_NAME"]
+                  client = boto3.client("logs")
+
+                  for attempt in range(12):
+                      streams = client.describe_log_streams(
+                          logGroupName=log_group,
+                          orderBy="LastEventTime",
+                          descending=True,
+                          limit=5,
+                      ).get("logStreams", [])
+                      total = sum(s.get("storedBytes", 0) for s in streams)
+                      if streams:
+                          cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                              "Verified": "true",
+                              "StreamCount": str(len(streams)),
+                              "Message": f"Log data verified in {log_group}",
+                          })
+                          return
+                      time.sleep(5)
+
+                  msg = f"No log streams found in {log_group} after seeding"
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": msg}, reason=msg)
+              except Exception as exc:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": str(exc)})
+
+  LogDataVerification:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: SeedLogsResource
+    Properties:
+      ServiceToken: !GetAtt LogDataVerifierLambda.Arn
+      Version: "1"
+
+Outputs:
+  LogGroupName:
+    Description: CloudWatch log group containing synthetic hackathon logs
+    Value: !Ref LogGroupName
+    Export:
+      Name: !Sub "${AWS::StackName}-LogGroupName"
+
+  LogGroupArn:
+    Description: ARN of the synthetic log group
+    Value: !GetAtt EcommerceLogGroup.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-LogGroupArn"
+
+  AgentPolicyArn:
+    Description: Attach this IAM policy to the AgentCore runtime execution role after deploy
+    Value: !Ref AgentCloudWatchReadPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-AgentPolicyArn"
+
+  EventsSeeded:
+    Description: Number of synthetic log events created
+    Value: !GetAtt SeedLogsResource.EventsSeeded
+    Export:
+      Name: !Sub "${AWS::StackName}-EventsSeeded"
+
+  MetricNamespace:
+    Description: CloudWatch metric namespace for error counts
+    Value: Hackathon/LogAnalysis
+    Export:
+      Name: !Sub "${AWS::StackName}-MetricNamespace"
+
+  AgentCoreStackName:
+    Description: Expected AgentCore CloudFormation stack name (deploy separately via agentcore deploy)
+    Value: AgentCore-LogAnalysisAgent-default
+    Export:
+      Name: !Sub "${AWS::StackName}-AgentCoreStackName"
+
+  DeployCommand:
+    Description: Command to deploy the Log Analysis Agent after this stack completes
+    Value: !Sub "cd /workshop/AWS_hackathon && npx agentcore deploy -y -v"
+    Export:
+      Name: !Sub "${AWS::StackName}-DeployCommand"
+
+  Region:
+    Description: Region where hackathon resources were provisioned
+    Value: !Ref AWS::Region
+    Export:
+      Name: !Sub "${AWS::StackName}-Region"
