@@ -94,7 +94,7 @@
       "config": {
         "llmAsAJudge": {
           "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
-          "instructions": "Evaluate whether the agent selected the correct CloudWatch tool with appropriate parameters. For discovery use list_log_groups; for aggregation use query_logs_insights; for quick triage use filter_log_events; for automated scans use detect_error_patterns; for RCA timelines use build_incident_timeline. Context: {context}. Available tools: {available_tools}. Tool turn: {tool_turn}",
+          "instructions": "Evaluate whether the agent selected the correct CloudWatch tool with appropriate parameters. Context: {context}. Available tools: {available_tools}. Tool turn: {tool_turn}",
           "ratingScale": {
             "categorical": [
               { "label": "Correct", "definition": "Right tool with valid parameters" },
@@ -106,20 +106,7 @@
       }
     }
   ],
-  "onlineEvalConfigs": [
-    {
-      "name": "LogAnalysisQualityMonitor",
-      "agent": "LogAnalysisAgent",
-      "evaluators": [
-        "LogAnalysisSessionQuality",
-        "LogAnalysisTraceAccuracy",
-        "Builtin.Faithfulness"
-      ],
-      "samplingRate": 25,
-      "enableOnCreate": false,
-      "description": "Continuous quality monitoring for log analysis agent (25% sampling). Enable manually after deploy succeeds."
-    }
-  ],
+  "onlineEvalConfigs": [],
   "agentCoreGateways": [],
   "policyEngines": []
 }

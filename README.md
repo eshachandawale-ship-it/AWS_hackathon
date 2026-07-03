@@ -24,6 +24,34 @@ python3 scripts/demo_showcase.py
 
 See also: [docs/sample_demo_output.md](docs/sample_demo_output.md)
 
+## Fix CloudFormation Deploy Failures
+
+**Symptom:** `NoStack: CloudFormationStack object does not hold a stack` or missing `agentcore/.cli/deployed-state.json`
+
+**Cause:** Full `agentcore.json` deploys runtime + 4 memory strategies + 3 evaluators + online eval in one stack. Any single `CREATE_FAILED` rolls back everything.
+
+**Fix (workshop):**
+
+```bash
+export AWS_REGION=us-west-2
+export AWS_DEFAULT_REGION=us-west-2
+
+# One-command fix: clean stack + minimal deploy
+bash scripts/fix_deploy.sh
+
+# After phase1 works, add features incrementally:
+bash scripts/fix_deploy.sh phase2   # + LTM memory + evaluators
+bash scripts/fix_deploy.sh full     # + online eval
+
+# Diagnose if still failing:
+bash scripts/diagnose_deploy.sh
+```
+
+**Prerequisites:**
+- Claude Sonnet 4 enabled in Bedrock (us-west-2)
+- Node 20+ (`node --version`)
+- `npm install` in project root (for local `@aws/agentcore`)
+
 ## Quick Start (AWS VS Code Environment)
 
 ```bash

@@ -1,0 +1,8 @@
+[
+  {
+    "name": "default",
+    "description": "AWS Hackathon workshop environment",
+    "account": "123456789012",
+    "region": "us-west-2"
+  }
+]
