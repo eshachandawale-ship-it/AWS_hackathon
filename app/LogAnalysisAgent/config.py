@@ -18,4 +18,4 @@ DEFAULT_LOG_GROUP = os.environ.get(
 INSIGHTS_QUERY_TIMEOUT = int(os.environ.get("INSIGHTS_QUERY_TIMEOUT", "30"))
 
 # AWS region
-AWS_REGION = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
+AWS_REGION = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-west-2"))

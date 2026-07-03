@@ -3,11 +3,12 @@
 Prerequisites:
     - AWS credentials configured
     - Log group created (run infrastructure stack or create manually)
+    - boto3 installed: pip install -r requirements.txt
 
 Usage:
     python scripts/seed_cloudwatch_logs.py
     python scripts/seed_cloudwatch_logs.py --log-group /hackathon/log-analysis/ecommerce-platform
-    python scripts/seed_cloudwatch_logs.py --input data/generated/logs.jsonl --region us-east-1
+    python scripts/seed_cloudwatch_logs.py --input data/generated/logs.jsonl --region us-west-2
 """
 
 from __future__ import annotations
@@ -19,8 +20,14 @@ import sys
 import time
 from pathlib import Path
 
-import boto3
-from botocore.exceptions import ClientError
+try:
+    import boto3
+    from botocore.exceptions import ClientError
+except ImportError:
+    print("boto3 is not installed. Run:")
+    print("  pip install -r requirements.txt")
+    print("  # or: pip install boto3")
+    sys.exit(1)
 
 DEFAULT_LOG_GROUP = "/hackathon/log-analysis/ecommerce-platform"
 BATCH_SIZE = 100
@@ -131,7 +138,7 @@ def main():
     parser = argparse.ArgumentParser(description="Seed CloudWatch with synthetic logs")
     parser.add_argument("--log-group", default=DEFAULT_LOG_GROUP)
     parser.add_argument("--input", default="data/generated/logs.jsonl")
-    parser.add_argument("--region", default="us-east-1")
+    parser.add_argument("--region", default="us-west-2")
     parser.add_argument("--generate", action="store_true", help="Generate logs before seeding")
     parser.add_argument("--retention-days", type=int, default=7)
     args = parser.parse_args()

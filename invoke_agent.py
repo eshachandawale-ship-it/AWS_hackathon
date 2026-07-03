@@ -7,7 +7,7 @@ import uuid
 import boto3
 
 
-def invoke(agent_arn: str, prompt: str, region: str = "us-east-1") -> dict:
+def invoke(agent_arn: str, prompt: str, region: str = "us-west-2") -> dict:
     client = boto3.client("bedrock-agentcore", region_name=region)
     payload = json.dumps({"prompt": prompt}).encode()
 

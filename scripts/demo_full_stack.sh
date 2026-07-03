@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-REGION="${AWS_REGION:-us-east-1}"
+REGION="${AWS_REGION:-us-west-2}"
 export AWS_REGION="$REGION"
 
 echo "=============================================="
@@ -22,7 +22,7 @@ aws sts get-caller-identity
 # ── 1. Seed synthetic logs ─────────────────────
 echo ""
 echo "[1/7] Seeding synthetic CloudWatch logs..."
-pip install -q boto3
+pip install -q -r requirements.txt
 python3 scripts/seed_cloudwatch_logs.py --generate --region "$REGION"
 
 # ── 2. Deploy AgentCore resources ──────────────

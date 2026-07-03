@@ -26,10 +26,23 @@
       "name": "LogAnalysisMemory",
       "eventExpiryDuration": 30,
       "strategies": [
-        { "type": "SEMANTIC" },
-        { "type": "SUMMARIZATION" },
-        { "type": "USER_PREFERENCE" },
-        { "type": "EPISODIC" }
+        {
+          "type": "SEMANTIC",
+          "namespaceTemplates": ["/users/{actorId}/facts"]
+        },
+        {
+          "type": "SUMMARIZATION",
+          "namespaceTemplates": ["/summaries/{actorId}"]
+        },
+        {
+          "type": "USER_PREFERENCE",
+          "namespaceTemplates": ["/users/{actorId}/preferences"]
+        },
+        {
+          "type": "EPISODIC",
+          "namespaceTemplates": ["/episodes/{actorId}/{sessionId}"],
+          "reflectionNamespaceTemplates": ["/episodes/{actorId}"]
+        }
       ]
     }
   ],

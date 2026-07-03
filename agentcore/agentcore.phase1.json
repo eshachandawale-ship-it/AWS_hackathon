@@ -1,0 +1,37 @@
+{
+  "name": "LogAnalysisAgent",
+  "version": 1,
+  "tags": {
+    "agentcore:created-by": "hackathon",
+    "agentcore:project-name": "LogAnalysisAgent",
+    "Environment": "prototype",
+    "UseCase": "log-analysis"
+  },
+  "runtimes": [
+    {
+      "name": "LogAnalysisAgent",
+      "build": "CodeZip",
+      "entrypoint": "main.py",
+      "codeLocation": "app/LogAnalysisAgent/",
+      "runtimeVersion": "PYTHON_3_13",
+      "networkMode": "PUBLIC",
+      "protocol": "HTTP",
+      "tags": {
+        "Owner": "hackathon-team"
+      }
+    }
+  ],
+  "memories": [
+    {
+      "name": "LogAnalysisMemory",
+      "eventExpiryDuration": 30,
+      "strategies": []
+    }
+  ],
+  "credentials": [],
+  "payments": [],
+  "evaluators": [],
+  "onlineEvalConfigs": [],
+  "agentCoreGateways": [],
+  "policyEngines": []
+}

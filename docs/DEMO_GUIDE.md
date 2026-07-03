@@ -47,7 +47,24 @@ npm install -g @aws/agentcore
 curl -LsSf https://astral.sh/uv/install.sh | sh   # if uv not installed
 ```
 
-Edit `agentcore/aws-targets.json` with your account ID.
+Edit `agentcore/aws-targets.json` with your account ID (root must be a JSON **array**):
+
+```json
+[
+  {
+    "name": "default",
+    "description": "AWS Hackathon workshop",
+    "account": "123456789012",
+    "region": "us-west-2"
+  }
+]
+```
+
+Get your account ID:
+
+```bash
+aws sts get-caller-identity --query Account --output text
+```
 
 ---
 
@@ -57,10 +74,14 @@ Deploy and invoke the agent on AgentCore Runtime.
 
 ```bash
 # Seed synthetic logs (no proprietary data)
+pip install -r requirements.txt
 python3 scripts/seed_cloudwatch_logs.py --generate
 
+# Generate CDK infra if missing
+bash scripts/setup_cdk.sh
+
 # Deploy all resources
-agentcore deploy -y
+npx agentcore deploy -y
 
 # Check status
 agentcore status
@@ -293,7 +314,7 @@ chmod +x scripts/demo_full_stack.sh
 | No traces in eval | Wait 5–10 min; increase `--days` |
 | CloudWatch access denied | Attach `HackathonLogAnalysisAgentPolicy` from CDK output |
 | Memory not working locally | Expected — memory requires deployed `MEMORY_LOGANALYSISMEMORY_ID` |
-| CDK bootstrap needed | `cdk bootstrap aws://ACCOUNT/REGION` |
+| CDK project not found | Run `bash scripts/setup_cdk.sh` then redeploy |
 | uv not found | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 
 ---

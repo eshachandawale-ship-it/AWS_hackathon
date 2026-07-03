@@ -1,10 +1,8 @@
-{
-  "version": 1,
-  "targets": [
-    {
-      "name": "default",
-      "account": "",
-      "region": "us-east-1"
-    }
-  ]
-}
+[
+  {
+    "name": "default",
+    "description": "AWS Hackathon workshop environment",
+    "account": "",
+    "region": "us-west-2"
+  }
+]

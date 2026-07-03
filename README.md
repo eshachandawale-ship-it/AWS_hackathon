@@ -14,6 +14,16 @@ Production-grade **Amazon Bedrock AgentCore** agent demonstrating **Runtime**, *
 
 > **Full demo walkthrough:** [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md)
 
+## Run a quick results preview (no deploy needed)
+
+Shows realistic agent output — tool calls, findings table, root cause, memory follow-up:
+
+```bash
+python3 scripts/demo_showcase.py
+```
+
+See also: [docs/sample_demo_output.md](docs/sample_demo_output.md)
+
 ## Quick Start (AWS VS Code Environment)
 
 ```bash
@@ -27,7 +37,12 @@ npm install -g @aws/agentcore
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 3. Seed logs + deploy
+pip install -r requirements.txt
 python3 scripts/seed_cloudwatch_logs.py --generate
+
+# Generate CDK infra (if agentcore/cdk is missing)
+bash scripts/setup_cdk.sh
+
 agentcore deploy -y
 
 # 4. Demo everything

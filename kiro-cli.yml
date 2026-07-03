@@ -51,12 +51,6 @@ Resources:
                   - cloudwatch:PutMetricData
                 Resource: "*"
 
-  EcommerceLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Ref LogGroupName
-      RetentionInDays: !Ref LogRetentionDays
-
   SeedLogsLambda:
     Type: AWS::Lambda::Function
     Properties:
@@ -104,6 +98,10 @@ Resources:
 
           def seed_logs(log_group, count):
               client = boto3.client("logs")
+              try:
+                  client.create_log_group(logGroupName=log_group)
+              except client.exceptions.ResourceAlreadyExistsException:
+                  pass
               now = datetime.now(timezone.utc)
               events = []
 
@@ -173,7 +171,6 @@ Resources:
 
   SeedLogsResource:
     Type: AWS::CloudFormation::CustomResource
-    DependsOn: EcommerceLogGroup
     Properties:
       ServiceToken: !GetAtt SeedLogsLambda.Arn
       Version: "1"
@@ -181,7 +178,6 @@ Resources:
   AgentCloudWatchReadPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub "HackathonLogAnalysisAgentPolicy-${AWS::StackName}"
       Description: CloudWatch read permissions for Log Analysis AgentCore runtime
       PolicyDocument:
         Version: "2012-10-17"
@@ -197,8 +193,8 @@ Resources:
               - logs:GetQueryResults
               - logs:StopQuery
             Resource:
-              - !GetAtt EcommerceLogGroup.Arn
-              - !Sub "${EcommerceLogGroup.Arn}:*"
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${LogGroupName}"
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${LogGroupName}:*"
               - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/hackathon/*"
           - Sid: CloudWatchMetricsRead
             Effect: Allow
@@ -282,7 +278,7 @@ Outputs:
 
   LogGroupArn:
     Description: ARN of the synthetic log group
-    Value: !GetAtt EcommerceLogGroup.Arn
+    Value: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${LogGroupName}"
     Export:
       Name: !Sub "${AWS::StackName}-LogGroupArn"
 
