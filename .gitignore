@@ -1,0 +1,29 @@
+# AgentCore
+agentcore/.env.local
+agentcore/.cli/
+**/__pycache__/
+**/.venv/
+**/.pytest_cache/
+*.pyc
+*.pyo
+
+# CDK
+infrastructure/cdk.out/
+infrastructure/node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated data (regenerate with scripts)
+data/generated/
+
+# Secrets
+.env
+*.pem
+credentials.json

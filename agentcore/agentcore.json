@@ -1,0 +1,112 @@
+{
+  "name": "LogAnalysisAgent",
+  "version": 1,
+  "tags": {
+    "agentcore:created-by": "hackathon",
+    "agentcore:project-name": "LogAnalysisAgent",
+    "Environment": "prototype",
+    "UseCase": "log-analysis"
+  },
+  "runtimes": [
+    {
+      "name": "LogAnalysisAgent",
+      "build": "CodeZip",
+      "entrypoint": "main.py",
+      "codeLocation": "app/LogAnalysisAgent/",
+      "runtimeVersion": "PYTHON_3_13",
+      "networkMode": "PUBLIC",
+      "protocol": "HTTP",
+      "tags": {
+        "Owner": "hackathon-team"
+      }
+    }
+  ],
+  "memories": [
+    {
+      "name": "LogAnalysisMemory",
+      "eventExpiryDuration": 30,
+      "strategies": [
+        { "type": "SEMANTIC" },
+        { "type": "SUMMARIZATION" },
+        { "type": "USER_PREFERENCE" },
+        { "type": "EPISODIC" }
+      ]
+    }
+  ],
+  "credentials": [],
+  "payments": [],
+  "evaluators": [
+    {
+      "name": "LogAnalysisSessionQuality",
+      "level": "SESSION",
+      "description": "Overall log analysis session quality — evidence, accuracy, remediation",
+      "config": {
+        "llmAsAJudge": {
+          "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+          "instructions": "Evaluate the log analysis session holistically. Did the agent query CloudWatch before making claims? Did it cite timestamps and log evidence? Did it avoid hallucinating log entries? Did it provide actionable remediation? Context: {context}",
+          "ratingScale": {
+            "numerical": [
+              { "value": 1, "label": "Poor", "definition": "Hallucinated data or missed critical errors" },
+              { "value": 2, "label": "Fair", "definition": "Partial analysis with weak evidence" },
+              { "value": 3, "label": "Good", "definition": "Solid analysis with cited evidence" },
+              { "value": 4, "label": "Very Good", "definition": "Thorough RCA with clear remediation" },
+              { "value": 5, "label": "Excellent", "definition": "Production-grade incident report" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "LogAnalysisTraceAccuracy",
+      "level": "TRACE",
+      "description": "Per-turn response accuracy for log analysis answers",
+      "config": {
+        "llmAsAJudge": {
+          "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+          "instructions": "Rate the accuracy of this log analysis response. Is it evidence-backed? Does it correctly interpret CloudWatch results? Context: {context}. Assistant turn: {assistant_turn}",
+          "ratingScale": {
+            "numerical": [
+              { "value": 1, "label": "Incorrect", "definition": "Wrong or unsupported conclusions" },
+              { "value": 3, "label": "Acceptable", "definition": "Mostly correct with minor gaps" },
+              { "value": 5, "label": "Accurate", "definition": "Fully supported by log evidence" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "CloudWatchToolUsage",
+      "level": "TOOL_CALL",
+      "description": "Correctness of CloudWatch tool selection and usage",
+      "config": {
+        "llmAsAJudge": {
+          "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+          "instructions": "Evaluate whether the agent selected the correct CloudWatch tool with appropriate parameters. For discovery use list_log_groups; for aggregation use query_logs_insights; for quick triage use filter_log_events; for automated scans use detect_error_patterns; for RCA timelines use build_incident_timeline. Context: {context}. Available tools: {available_tools}. Tool turn: {tool_turn}",
+          "ratingScale": {
+            "categorical": [
+              { "label": "Correct", "definition": "Right tool with valid parameters" },
+              { "label": "Suboptimal", "definition": "Works but a better tool exists" },
+              { "label": "Incorrect", "definition": "Wrong tool or invalid parameters" }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "onlineEvalConfigs": [
+    {
+      "name": "LogAnalysisQualityMonitor",
+      "agent": "LogAnalysisAgent",
+      "evaluators": [
+        "LogAnalysisSessionQuality",
+        "LogAnalysisTraceAccuracy",
+        "Builtin.Faithfulness"
+      ],
+      "samplingRate": 25,
+      "enableOnCreate": true,
+      "description": "Continuous quality monitoring for log analysis agent (25% sampling)"
+    }
+  ],
+  "agentCoreGateways": [],
+  "policyEngines": []
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "targets": [
+    {
+      "name": "default",
+      "account": "",
+      "region": "us-east-1"
+    }
+  ]
+}
